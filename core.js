@@ -1,0 +1,12 @@
+'use strict';
+(function(root){
+const months=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+function valid(p){return p&&typeof p.id==='string'&&/^[a-zA-Z0-9-]{1,80}$/.test(p.id)&&typeof p.name==='string'&&p.name.trim().length>0&&p.name.length<=100&&Number.isInteger(p.day)&&Number.isInteger(p.month)&&p.month>=1&&p.month<=12&&p.day>=1&&p.day<=new Date(2000,p.month,0).getDate();}
+function occurrence(p,y){return new Date(y,p.month-1,Math.min(p.day,new Date(y,p.month,0).getDate()));}
+function next(p,now=new Date()){const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());let date=occurrence(p,today.getFullYear());if(date<today)date=occurrence(p,today.getFullYear()+1);return date;}
+function days(p,now=new Date()){const n=next(p,now);return Math.round((Date.UTC(n.getFullYear(),n.getMonth(),n.getDate())-Date.UTC(now.getFullYear(),now.getMonth(),now.getDate()))/86400000);}
+function esc(s){return s.replace(/\\/g,'\\\\').replace(/\r\n|\r|\n/g,'\\n').replace(/;/g,'\\;').replace(/,/g,'\\,');}
+function fold(s){let line='',out=[];for(const c of s){if(new TextEncoder().encode(line+c).length>73){out.push(line);line=' '+c;}else line+=c;}out.push(line);return out.join('\r\n');}
+function ics(records,now=new Date()){const stamp=now.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}Z/,'Z');const pad=n=>String(n).padStart(2,'0');let lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Dni Rozhdeniya//RU','CALSCALE:GREGORIAN','METHOD:PUBLISH'];for(const p of records){const d=next(p,now);const rule=p.month===2&&p.day===29?'FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1':`FREQ=YEARLY;BYMONTH=${p.month};BYMONTHDAY=${p.day}`;lines.push('BEGIN:VEVENT',`UID:${p.id}@dni-rozhdeniya.local`,`DTSTAMP:${stamp}`,`DTSTART:${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T090000`,'DURATION:PT15M',`RRULE:${rule}`,`SUMMARY:${esc('День рождения: '+p.name)}`,'DESCRIPTION:Поздравить близкого человека. Время местное.','TRANSP:TRANSPARENT');for(const trigger of ['-P1D','PT0S'])lines.push('BEGIN:VALARM','ACTION:DISPLAY',`TRIGGER:${trigger}`,`DESCRIPTION:${esc('День рождения: '+p.name)}`,'END:VALARM');lines.push('END:VEVENT');}lines.push('END:VCALENDAR');return lines.map(fold).join('\r\n')+'\r\n';}
+const api={valid,next,days,ics,months};root.Birthdays=api;if(typeof module!=='undefined')module.exports=api;
+})(typeof window==='undefined'?globalThis:window);
